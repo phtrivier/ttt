@@ -1,7 +1,8 @@
 module Tests (..) where
 
-import Ttt exposing (Either(..), Cell, BadMove(..))
+import Ttt exposing (Cell, BadMove(..))
 import ElmTest exposing (..)
+import Result exposing (..)
 
 
 cells : Test
@@ -14,43 +15,20 @@ cells =
     ]
 
 
-xat0_0 : Ttt.Board
+xat0_0 : Result Ttt.BadMove Ttt.Board
 xat0_0 =
-  case Ttt.move ( 0, 0 ) Ttt.X Ttt.emptyBoard of
-    Good b ->
-      b
-
-    _ ->
-      Debug.crash "Should not happen"
+  Ttt.move ( 0, 0 ) Ttt.X Ttt.emptyBoard
 
 
-invalidMove : Ttt.BadMove
+invalidMove : Result Ttt.BadMove Ttt.Board
 invalidMove =
-  case Ttt.move ( -1, -2 ) Ttt.X Ttt.emptyBoard of
-    Bad b ->
-      b
-
-    _ ->
-      Debug.crash "Expecting error"
+  Ttt.move ( -1, -2 ) Ttt.X Ttt.emptyBoard
 
 
-alreadyTaken : Ttt.BadMove
+alreadyTaken : Result Ttt.BadMove Ttt.Board
 alreadyTaken =
-  let
-    b =
-      case Ttt.move ( 2, 2 ) Ttt.X Ttt.emptyBoard of
-        Good g ->
-          g
-
-        _ ->
-          Debug.crash "Should be possible do first move"
-  in
-    case Ttt.move ( 2, 2 ) Ttt.O b of
-      Bad b ->
-        b
-
-      _ ->
-        Debug.crash "Should not be possible to take already taken spot"
+  Ttt.move ( 2, 2 ) Ttt.X Ttt.emptyBoard
+    `Result.andThen` Ttt.move ( 2, 2 ) Ttt.O
 
 
 board : Test
@@ -58,8 +36,17 @@ board =
   suite
     "Board building"
     [ test "empty board has nothing" (assertEqual (Just Ttt.N) (Ttt.cellAt ( 0, 0 ) Ttt.emptyBoard))
-    , test "valid move is found" (assertEqual (Just Ttt.X) (Ttt.cellAt ( 0, 0 ) xat0_0))
-    , test "invalid move is rejected" (assertEqual (InvalidCell ( -1, -2 )) invalidMove)
+    , test
+        "valid move is found in board"
+        (assertEqual
+          (Just Ttt.X)
+           -- I kinda wish there was a more readable version of this...
+           ((Result.toMaybe xat0_0)
+            `Maybe.andThen` (Ttt.cellAt ( 0, 0 ))
+          )
+        )
+    , test "invalid move is rejected" (assertEqual (Err (InvalidCell ( -1, -2 ))) invalidMove)
+    , test "already taken" (assertEqual (Err AlreadyTaken) alreadyTaken)
     ]
 
 
